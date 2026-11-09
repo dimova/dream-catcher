@@ -1,10 +1,7 @@
 import OpenAI from 'openai';
-// Use Node's native fetch instead of the bundled node-fetch polyfill;
-// node-fetch's gzip handling is unreliable in some network environments.
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  fetch: globalThis.fetch
-});
+  apiKey: process.env.OPENAI_API_KEY
+  });
 
 // Call OpenAI API for dream interpretation
 export async function getDreamInterpretation(dreamText) {
