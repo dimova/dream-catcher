@@ -4,6 +4,7 @@ import { dirname, join } from 'path';
 import helmet from 'helmet'
 import { initDatabase } from './config/database-init.js';
 import dreamsRouter from './routes/dreams.js';
+import pool from './config/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,11 +25,38 @@ app.use(express.static(join(__dirname, 'public')));
 // API Routes
 app.use('/api/dreams', dreamsRouter);
 
+// Temporary endpoint to manually trigger a graceful shutdown for testing.
+// Delete this route once shutdown behavior has been verified on Render.
+app.get('/shutdown', (req, res) => {
+  res.send('Shutting down...');
+  process.kill(process.pid, 'SIGTERM');
+});
+
+let server;
+
 // Initialize database then start server
 initDatabase().then(() => {
-  app.listen(PORT, () => {
+  server = app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }).catch(error => {
   console.error('Failed to initialize database:', error);
 });
+process.on('SIGTERM', gracefulShutdown);
+
+async function gracefulShutdown() {
+ console.log('SIGTERM received, shutting down gracefully');
+  // Close the server first (stop accepting new connections)
+ server.close(() => {
+   console.log('HTTP server closed');
+ });
+  // Then close database pool
+ try {
+   await pool.end();
+   console.log('Database pool closed');
+   process.exit(0);
+ } catch (error) {
+   console.error('Error closing database pool:', error);
+   process.exit(1);
+ }
+}
